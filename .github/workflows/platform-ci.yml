@@ -1,0 +1,122 @@
+name: Platform CI
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "infrastructure/local/**"
+      - "scripts/local-platform-check.sh"
+      - ".github/workflows/platform-ci.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "infrastructure/local/**"
+      - "scripts/local-platform-check.sh"
+      - ".github/workflows/platform-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: platform-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  platform-integration:
+    name: Platform integration / Docker Compose
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    env:
+      FF_ENV_FILE: infrastructure/local/.env
+      FF_COMPOSE_FILE: infrastructure/local/compose.yaml
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Verify runner tools
+        run: |
+          docker version
+          docker compose version
+
+          if ! command -v shellcheck >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install --yes shellcheck
+          fi
+
+          shellcheck --version
+
+      - name: Create ephemeral CI environment
+        run: |
+          cp infrastructure/local/.env.example "${FF_ENV_FILE}"
+          chmod 600 "${FF_ENV_FILE}"
+
+      - name: Run static validation
+        run: |
+          shellcheck scripts/local-platform-check.sh
+
+          docker compose \
+            --env-file "${FF_ENV_FILE}" \
+            --file "${FF_COMPOSE_FILE}" \
+            config --quiet
+
+      - name: Pull platform images
+        run: |
+          docker compose \
+            --env-file "${FF_ENV_FILE}" \
+            --file "${FF_COMPOSE_FILE}" \
+            pull
+
+      - name: Start platform
+        run: |
+          docker compose \
+            --env-file "${FF_ENV_FILE}" \
+            --file "${FF_COMPOSE_FILE}" \
+            up --detach --wait --wait-timeout 300
+
+      - name: Run platform integration tests
+        run: ./scripts/local-platform-check.sh
+
+      - name: Collect failure evidence
+        if: failure()
+        run: |
+          mkdir -p artifacts
+
+          docker compose \
+            --env-file "${FF_ENV_FILE}" \
+            --file "${FF_COMPOSE_FILE}" \
+            ps --all > artifacts/compose-ps.txt 2>&1 || true
+
+          docker compose \
+            --env-file "${FF_ENV_FILE}" \
+            --file "${FF_COMPOSE_FILE}" \
+            logs --no-color --timestamps \
+            > artifacts/compose.log 2>&1 || true
+
+          docker version > artifacts/docker-version.txt 2>&1 || true
+          docker compose version > artifacts/compose-version.txt 2>&1 || true
+
+      - name: Upload failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: platform-ci-failure-${{ github.run_id }}
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Clean up platform
+        if: always()
+        run: |
+          if [[ -f "${FF_ENV_FILE}" ]]; then
+            docker compose \
+              --env-file "${FF_ENV_FILE}" \
+              --file "${FF_COMPOSE_FILE}" \
+              down --volumes --remove-orphans || true
+          fi
