@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:factoryflow:events:batch-ingested:1.0.0",
+  "title": "FactoryFlow Batch Ingested Event",
+  "description": "Immutable integration event emitted after a batch manifest is registered transactionally.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_id",
+    "event_type",
+    "event_version",
+    "occurred_at",
+    "aggregate_type",
+    "aggregate_id",
+    "data"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Stable event identifier generated from the aggregate identity."
+    },
+    "event_type": {
+      "type": "string",
+      "const": "factoryflow.batch.ingested"
+    },
+    "event_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC timestamp at which the artifact finished landing."
+    },
+    "aggregate_type": {
+      "type": "string",
+      "const": "batch"
+    },
+    "aggregate_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Batch identifier used for event-stream partitioning."
+    },
+    "data": {
+      "$ref": "urn:factoryflow:contracts:batch-manifest:1.0.0"
+    }
+  }
+}
