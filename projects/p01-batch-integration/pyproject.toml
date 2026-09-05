@@ -7,7 +7,10 @@ name = "factoryflow-batch-integration"
 version = "0.1.0"
 description = "Production-grade batch ingestion for FactoryFlow MX."
 requires-python = ">=3.12,<3.14"
-dependencies = []
+dependencies = [
+  "psycopg[binary]>=3.3.5,<3.4",
+  "psycopg-pool>=3.3.1,<3.4"
+]
 
 [project.optional-dependencies]
 dev = [
@@ -61,3 +64,6 @@ python_version = "3.12"
 strict = true
 warn_unreachable = true
 show_error_codes = true
+
+[project.scripts]
+factoryflow-p01-migrate = "factoryflow_batch.entrypoints.migrate_postgres:main"

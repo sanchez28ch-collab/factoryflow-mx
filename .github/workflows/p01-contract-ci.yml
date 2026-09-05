@@ -1,4 +1,4 @@
-name: P01 Contract CI
+name: P01 Quality CI
 
 on:
   pull_request:
@@ -26,15 +26,32 @@ concurrency:
 
 env:
   P01_PROJECT_DIR: projects/p01-batch-integration
+  P01_TEST_DATABASE_URL: postgresql://factoryflow_test:factoryflow_ci@127.0.0.1:5432/factoryflow_p01_test
   PIP_DISABLE_PIP_VERSION_CHECK: "1"
   PYTHONDONTWRITEBYTECODE: "1"
   PYTHONUNBUFFERED: "1"
 
 jobs:
   quality-gate:
-    name: Contract and domain quality
+    name: Contracts, PostgreSQL and application
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+
+    services:
+      postgres:
+        image: postgres:17.11-bookworm
+        env:
+          POSTGRES_DB: factoryflow_p01_test
+          POSTGRES_USER: factoryflow_test
+          POSTGRES_PASSWORD: factoryflow_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd
+          "pg_isready -U factoryflow_test -d factoryflow_p01_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
 
     steps:
       - name: Checkout repository
@@ -62,4 +79,4 @@ jobs:
       - name: Run P01 quality gate
         shell: bash
         run: |
-          "./${P01_PROJECT_DIR}/scripts/quality-gate.sh"
+          "./${P01_PROJECT_DIR}/scripts/postgres-quality-gate.sh"
