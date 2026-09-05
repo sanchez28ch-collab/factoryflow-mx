@@ -1,0 +1,17 @@
+{
+  "manifest_version": "1.0.0",
+  "batch_id": "018f4b26-7c11-7a32-8d26-4beef4c28f21",
+  "idempotency_key": "01912fd29cd17d1deb818daaee8dbcbbcfdcec5074cc114942f6ff084f2d748e",
+  "source_system": "erp_factory",
+  "dataset": "production_orders",
+  "schema_version": "1.0.0",
+  "logical_date": "2026-09-05",
+  "source_file_name": "production_orders_20260905.csv",
+  "landing_uri": "gs://factoryflow-dev-raw/erp_factory/production_orders/2026/09/05/018f4b26-7c11-7a32-8d26-4beef4c28f21/production_orders_20260905.csv",
+  "content_type": "text/csv",
+  "extracted_at": "2026-09-05T12:00:00Z",
+  "landed_at": "2026-09-05T12:00:05Z",
+  "record_count": 1250,
+  "file_size_bytes": 98432,
+  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}
