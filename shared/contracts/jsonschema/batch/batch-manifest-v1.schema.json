@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:factoryflow:contracts:batch-manifest:1.0.0",
+  "title": "FactoryFlow Batch Manifest",
+  "description": "Immutable metadata describing one batch artifact landed by P01.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "manifest_version",
+    "batch_id",
+    "idempotency_key",
+    "source_system",
+    "dataset",
+    "schema_version",
+    "logical_date",
+    "source_file_name",
+    "landing_uri",
+    "content_type",
+    "extracted_at",
+    "landed_at",
+    "record_count",
+    "file_size_bytes",
+    "sha256"
+  ],
+  "properties": {
+    "manifest_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "batch_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "idempotency_key": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "source_system": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 63,
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "dataset": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 63,
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "logical_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "source_file_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "pattern": "^[^/\\\\]+$"
+    },
+    "landing_uri": {
+      "type": "string",
+      "pattern": "^(gs://[^/]+/.+|file:///.+)$"
+    },
+    "content_type": {
+      "type": "string",
+      "enum": [
+        "text/csv",
+        "application/json",
+        "application/x-ndjson",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      ]
+    },
+    "extracted_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "landed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "record_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "file_size_bytes": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

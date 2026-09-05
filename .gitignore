@@ -47,3 +47,6 @@ Thumbs.db
 *.log
 *.tmp
 *.swp
+
+# Python package metadata
+*.egg-info/

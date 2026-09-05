@@ -1,0 +1,17 @@
+{
+  "manifest_version": "2.0.0",
+  "batch_id": "not-a-uuid",
+  "idempotency_key": "invalid",
+  "source_system": "ERP FACTORY",
+  "schema_version": "v1",
+  "logical_date": "05/09/2026",
+  "source_file_name": "../orders.csv",
+  "landing_uri": "https://example.com/orders.csv",
+  "content_type": "application/octet-stream",
+  "extracted_at": "2026-09-05 12:00:00",
+  "landed_at": "2026-09-05 11:00:00",
+  "record_count": -1,
+  "file_size_bytes": 0,
+  "sha256": "1234",
+  "unexpected_field": true
+}
