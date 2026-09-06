@@ -3,6 +3,7 @@
 from factoryflow_batch.adapters.exceptions import (
     CsvArtifactValidationError,
     ImmutableLandingConflictError,
+    KafkaPublisherConfigurationError,
     LocalAdapterError,
     LocalArtifactAccessError,
     LocalArtifactIntegrityError,
@@ -12,6 +13,12 @@ from factoryflow_batch.adapters.exceptions import (
     PostgresMigrationDriftError,
     PostgresMigrationError,
     PostgresMigrationExecutionError,
+    PostgresOutboxStoreDataError,
+    PostgresOutboxStoreError,
+)
+from factoryflow_batch.adapters.kafka_event_publisher import (
+    ConfluentKafkaEventPublisher,
+    KafkaPublisherConfiguration,
 )
 from factoryflow_batch.adapters.local_csv_inspector import (
     LocalCsvArtifactInspector,
@@ -34,10 +41,20 @@ from factoryflow_batch.adapters.postgres_migrations import (
     SqlMigration,
     discover_sql_migrations,
 )
+from factoryflow_batch.adapters.postgres_outbox_store import (
+    PostgresOutboxStore,
+)
+from factoryflow_batch.adapters.runtime import (
+    SystemUtcClock,
+    UuidLeaseIdGenerator,
+)
 
 __all__ = [
+    "ConfluentKafkaEventPublisher",
     "CsvArtifactValidationError",
     "ImmutableLandingConflictError",
+    "KafkaPublisherConfiguration",
+    "KafkaPublisherConfigurationError",
     "LocalAdapterError",
     "LocalArtifactAccessError",
     "LocalArtifactIntegrityError",
@@ -52,7 +69,12 @@ __all__ = [
     "PostgresMigrationError",
     "PostgresMigrationExecutionError",
     "PostgresMigrationRunner",
+    "PostgresOutboxStore",
+    "PostgresOutboxStoreDataError",
+    "PostgresOutboxStoreError",
     "SqlMigration",
+    "SystemUtcClock",
+    "UuidLeaseIdGenerator",
     "batch_manifest_from_mapping",
     "batch_manifest_to_mapping",
     "discover_sql_migrations",
