@@ -21,37 +21,22 @@ permissions:
   contents: read
 
 concurrency:
-  group: p01-contract-${{ github.workflow }}-${{ github.ref }}
+  group: p01-quality-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
   P01_PROJECT_DIR: projects/p01-batch-integration
-  P01_TEST_DATABASE_URL: postgresql://factoryflow_test:factoryflow_ci@127.0.0.1:5432/factoryflow_p01_test
+  FF_ENV_FILE: infrastructure/local/.env
+  FF_COMPOSE_FILE: infrastructure/local/compose.yaml
   PIP_DISABLE_PIP_VERSION_CHECK: "1"
   PYTHONDONTWRITEBYTECODE: "1"
   PYTHONUNBUFFERED: "1"
 
 jobs:
   quality-gate:
-    name: Contracts, PostgreSQL and application
+    name: Contracts, PostgreSQL, Kafka and application
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
-
-    services:
-      postgres:
-        image: postgres:17.11-bookworm
-        env:
-          POSTGRES_DB: factoryflow_p01_test
-          POSTGRES_USER: factoryflow_test
-          POSTGRES_PASSWORD: factoryflow_ci
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd
-          "pg_isready -U factoryflow_test -d factoryflow_p01_test"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 12
+    timeout-minutes: 20
 
     steps:
       - name: Checkout repository
@@ -66,6 +51,25 @@ jobs:
           cache: pip
           cache-dependency-path: projects/p01-batch-integration/requirements-dev.lock
 
+      - name: Verify runner tools
+        shell: bash
+        run: |
+          docker version
+          docker compose version
+
+          if ! command -v shellcheck >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install --yes shellcheck
+          fi
+
+          shellcheck --version
+
+      - name: Create ephemeral integration environment
+        shell: bash
+        run: |
+          cp infrastructure/local/.env.example "${FF_ENV_FILE}"
+          chmod 600 "${FF_ENV_FILE}"
+
       - name: Install locked dependencies
         shell: bash
         run: |
@@ -76,7 +80,78 @@ jobs:
             --no-deps \
             --editable "${P01_PROJECT_DIR}"
 
-      - name: Run P01 quality gate
+      - name: Validate scripts and Compose
+        shell: bash
+        run: |
+          shellcheck \
+            "${P01_PROJECT_DIR}/scripts/quality-gate.sh" \
+            "${P01_PROJECT_DIR}/scripts/postgres-quality-gate.sh"
+
+          docker compose \
+            --env-file "${FF_ENV_FILE}" \
+            --file "${FF_COMPOSE_FILE}" \
+            config --quiet
+
+      - name: Pull integration images
+        shell: bash
+        run: |
+          docker compose \
+            --env-file "${FF_ENV_FILE}" \
+            --file "${FF_COMPOSE_FILE}" \
+            pull
+
+      - name: Start PostgreSQL and Kafka
+        shell: bash
+        run: |
+          docker compose \
+            --env-file "${FF_ENV_FILE}" \
+            --file "${FF_COMPOSE_FILE}" \
+            up --detach --wait --wait-timeout 300
+
+      - name: Run P01 integrated quality gate
         shell: bash
         run: |
           "./${P01_PROJECT_DIR}/scripts/postgres-quality-gate.sh"
+
+      - name: Collect failure evidence
+        if: failure()
+        shell: bash
+        run: |
+          mkdir -p artifacts
+
+          docker compose \
+            --env-file "${FF_ENV_FILE}" \
+            --file "${FF_COMPOSE_FILE}" \
+            ps --all > artifacts/compose-ps.txt 2>&1 || true
+
+          docker compose \
+            --env-file "${FF_ENV_FILE}" \
+            --file "${FF_COMPOSE_FILE}" \
+            logs --no-color --timestamps \
+            > artifacts/compose.log 2>&1 || true
+
+          docker version \
+            > artifacts/docker-version.txt 2>&1 || true
+
+          docker compose version \
+            > artifacts/docker-compose-version.txt 2>&1 || true
+
+      - name: Upload failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: p01-quality-failure-${{ github.run_id }}
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Clean up integration platform
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f "${FF_ENV_FILE}" ]]; then
+            docker compose \
+              --env-file "${FF_ENV_FILE}" \
+              --file "${FF_COMPOSE_FILE}" \
+              down --volumes --remove-orphans || true
+          fi

@@ -23,6 +23,64 @@ if [[ -x "${ff_repo_root}/.venv/bin/python3" ]]; then
   export PATH="${ff_repo_root}/.venv/bin:${PATH}"
 fi
 
+ff_prepare_kafka_topic() {
+  printf '[kafka] Creating and verifying versioned integration topic\n'
+
+  python3 - <<'PY'
+import os
+
+from confluent_kafka.admin import AdminClient, NewTopic
+
+bootstrap_servers = os.environ[
+    "P01_TEST_KAFKA_BOOTSTRAP_SERVERS"
+]
+topic = "factoryflow.batch.ingested.v1"
+
+admin = AdminClient(
+    {
+        "bootstrap.servers": bootstrap_servers,
+        "client.id": "factoryflow-p01-quality-gate",
+        "security.protocol": "PLAINTEXT",
+        "allow.auto.create.topics": False,
+    }
+)
+metadata = admin.list_topics(timeout=15)
+
+if topic not in metadata.topics:
+    future = admin.create_topics(
+        [
+            NewTopic(
+                topic,
+                num_partitions=3,
+                replication_factor=1,
+            )
+        ],
+        operation_timeout=10,
+        request_timeout=15,
+    )[topic]
+    future.result(timeout=15)
+
+metadata = admin.list_topics(topic=topic, timeout=15)
+topic_metadata = metadata.topics.get(topic)
+
+if topic_metadata is None:
+    raise RuntimeError("The Kafka integration topic was not found.")
+
+if topic_metadata.error is not None:
+    raise RuntimeError("Kafka returned invalid topic metadata.")
+
+if len(topic_metadata.partitions) != 3:
+    raise RuntimeError(
+        "The Kafka integration topic must contain three partitions."
+    )
+
+print(
+    "PASS: Kafka topic is available with "
+    f"{len(topic_metadata.partitions)} partitions."
+)
+PY
+}
+
 ff_run_gate() {
   printf '[postgres] Applying and verifying versioned migrations\n'
 
@@ -30,10 +88,24 @@ ff_run_gate() {
     python3 -m factoryflow_batch.entrypoints.migrate_postgres \
       --migration-directory "${ff_project_dir}/sql/migrations"
 
+  ff_prepare_kafka_topic
   "${ff_script_dir}/quality-gate.sh"
 }
 
-if [[ -n "${P01_TEST_DATABASE_URL:-}" ]]; then
+if [[
+  -n "${P01_TEST_DATABASE_URL:-}" ||
+  -n "${P01_TEST_KAFKA_BOOTSTRAP_SERVERS:-}"
+]]; then
+  if [[
+    -z "${P01_TEST_DATABASE_URL:-}" ||
+    -z "${P01_TEST_KAFKA_BOOTSTRAP_SERVERS:-}"
+  ]]; then
+    printf '%s\n' \
+      'ERROR: both P01_TEST_DATABASE_URL and' \
+      'P01_TEST_KAFKA_BOOTSTRAP_SERVERS are required.' >&2
+    exit 1
+  fi
+
   ff_run_gate
   exit 0
 fi
@@ -60,6 +132,11 @@ ff_compose=(
 
 if ! "${ff_compose[@]}" exec -T postgres true >/dev/null 2>&1; then
   printf 'ERROR: the local PostgreSQL container is not running.\n' >&2
+  exit 1
+fi
+
+if ! "${ff_compose[@]}" exec -T kafka true >/dev/null 2>&1; then
+  printf 'ERROR: the local Kafka container is not running.\n' >&2
   exit 1
 fi
 
@@ -101,13 +178,18 @@ ff_pg_port="$(
   "${ff_compose[@]}" port postgres 5432 |
     sed -E 's/.*:([0-9]+)$/\1/'
 )"
+ff_kafka_port="$(
+  "${ff_compose[@]}" port kafka 9092 |
+    sed -E 's/.*:([0-9]+)$/\1/'
+)"
 
 if [[
   -z "${ff_pg_user}" ||
   -z "${ff_pg_password}" ||
-  -z "${ff_pg_port}"
+  -z "${ff_pg_port}" ||
+  -z "${ff_kafka_port}"
 ]]; then
-  printf 'ERROR: PostgreSQL connection settings could not be resolved.\n' >&2
+  printf 'ERROR: integration connection settings could not be resolved.\n' >&2
   exit 1
 fi
 
@@ -130,10 +212,14 @@ print(
 )
 '
 )"
+P01_TEST_KAFKA_BOOTSTRAP_SERVERS="localhost:${ff_kafka_port}"
+
 export P01_TEST_DATABASE_URL
+export P01_TEST_KAFKA_BOOTSTRAP_SERVERS
 
 unset ff_pg_password
 
 ff_run_gate
 
 unset P01_TEST_DATABASE_URL
+unset P01_TEST_KAFKA_BOOTSTRAP_SERVERS

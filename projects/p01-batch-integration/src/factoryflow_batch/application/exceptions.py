@@ -15,3 +15,19 @@ class ArtifactIntegrityError(BatchIngestionError):
 
 class BatchRegistryConsistencyError(BatchIngestionError):
     """Raised when persistence returns an incompatible registration."""
+
+
+class OutboxPublicationError(BatchIngestionError):
+    """Base class for controlled outbox-publication failures."""
+
+
+class OutboxPublicationConfigurationError(OutboxPublicationError):
+    """Raised when a publisher policy or runtime dependency is invalid."""
+
+
+class OutboxPublicationConsistencyError(OutboxPublicationError):
+    """Raised when a publication outcome cannot be persisted safely."""
+
+
+class OutboxPublicationPersistenceError(OutboxPublicationError):
+    """Raised when publication state cannot be persisted safely."""

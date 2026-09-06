@@ -203,8 +203,12 @@ The quality gate validates:
 
 ## Current boundary
 
-This delivery provides PostgreSQL persistence, controlled migrations and the
+This component provides PostgreSQL persistence, controlled migrations and the
 transactional outbox write path.
 
-Kafka publication, retry scheduling, dead-letter processing and reconciliation
-belong to the next delivery stage.
+Kafka leasing, publication, retry scheduling and terminal dead-letter marking
+are implemented by the subsequent publisher component documented in
+`kafka-outbox-publisher.md`.
+
+Automated dead-letter replay and cross-system reconciliation remain future
+operational capabilities.

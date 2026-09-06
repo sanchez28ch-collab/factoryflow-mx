@@ -1,5 +1,7 @@
 """Controlled failures raised by concrete P01 infrastructure adapters."""
 
+from factoryflow_batch.ports.outbox import OutboxStoreError
+
 
 class LocalAdapterError(Exception):
     """Base failure for local infrastructure adapters."""
@@ -43,3 +45,15 @@ class PostgresMigrationDriftError(PostgresMigrationError):
 
 class PostgresMigrationExecutionError(PostgresMigrationError):
     """Raised when PostgreSQL cannot apply a pending migration."""
+
+
+class PostgresOutboxStoreError(LocalAdapterError, OutboxStoreError):
+    """Raised when PostgreSQL outbox persistence cannot complete."""
+
+
+class PostgresOutboxStoreDataError(PostgresOutboxStoreError):
+    """Raised when persisted outbox data violates its contract."""
+
+
+class KafkaPublisherConfigurationError(LocalAdapterError):
+    """Raised when Kafka publisher configuration is unsafe or invalid."""
